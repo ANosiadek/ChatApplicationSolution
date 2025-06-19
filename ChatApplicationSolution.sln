@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatFrontend", "ChatFrontend\ChatFrontend.csproj", "{C25135AC-B36F-425B-B651-A938F2CE14B0}"
+	ProjectSection(ProjectDependencies) = postProject
+		{BDE3BCCD-6515-4BAB-8C0D-8208B960458C} = {BDE3BCCD-6515-4BAB-8C0D-8208B960458C}
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChatBackend", "ChatBackend\ChatBackend.csproj", "{BDE3BCCD-6515-4BAB-8C0D-8208B960458C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C25135AC-B36F-425B-B651-A938F2CE14B0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C25135AC-B36F-425B-B651-A938F2CE14B0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C25135AC-B36F-425B-B651-A938F2CE14B0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C25135AC-B36F-425B-B651-A938F2CE14B0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BDE3BCCD-6515-4BAB-8C0D-8208B960458C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BDE3BCCD-6515-4BAB-8C0D-8208B960458C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BDE3BCCD-6515-4BAB-8C0D-8208B960458C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BDE3BCCD-6515-4BAB-8C0D-8208B960458C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
