@@ -1,0 +1,258 @@
+@page "/chat"
+@rendermode InteractiveServer
+@using ChatFrontend.Services
+@using System.Text.Json
+@inject User user
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@inject IWebHostEnvironment _hostEnvironment
+
+
+<PageTitle>Chat</PageTitle>
+
+@if (!isAuthorized)
+{
+    <p>Proszę się zalogować. <a href="/login">Przejdź do logowania</a></p>
+}
+else if (connectionError)
+{
+    <p class="error-message">Błąd połączenia z serwerem. Sprawdź, czy ChatBackend działa na http://localhost:5000. 
+    <button @onclick="RetryConnection">Ponów próbę</button></p>
+}
+else
+{
+    <div class="chat-container">
+        <div class="chat-box">
+            <h3>Czat użytkownika <strong>@user.Username</strong> z serwerem</h3>
+            <div class="messages" id="chat1">
+                @foreach (var message in Messages)
+                {
+                    <div><em>(@message.Timestamp.ToLocalTime()) </em><strong>@(message.User ?? "Unknown"):</strong> @message.Content</div>
+                }
+            </div>
+            <input @bind="chat_input" @onkeyup="HandleEnterKey" type="text" id="input1" placeholder="Wpisz wiadomość..." />
+            <button @onclick="SendMessage">Wyślij</button>
+        </div>
+    </div>
+}
+
+@code {
+    private string chat_input = string.Empty;
+    private List<ChatMessage> Messages = [];
+    private WebSocket? webSocket;
+    private bool connectionError = false;
+    private bool isAuthorized = false;
+
+    // Inicjalizowanie komponentu po załadowaniu, sprawdzanie autoryzacji i ładowanie danych czatu
+    protected override async Task OnInitializedAsync()
+    {
+        
+        if (user.CheckUserName())
+        {
+            Console.WriteLine($"Użytkownik zalogowany: {user.Username}");
+            await Task.Delay(5);
+            isAuthorized = user.CheckUserName();
+            if (isAuthorized)
+            {
+                await LoadChatHistoryAsync();
+                await InitializeWebSocketAsync();
+            }
+        }
+    }
+
+    // Wczytywanie historii czatu z pliku logów na serwerze
+    private async Task LoadChatHistoryAsync()
+    {
+        try
+        {
+            var solutionRoot = Directory.GetParent(_hostEnvironment.ContentRootPath)?.Parent?.FullName;
+            if (string.IsNullOrEmpty(solutionRoot))
+            {
+                Console.WriteLine("Nie udało się ustalić katalogu nadrzędnego.");
+                return;
+            }
+            var logFilePath = Path.Combine(solutionRoot, "ChatApplicationSolution", "ChatBackend", "logs", "chat_log.txt");
+            Console.WriteLine("Docelowa ścieżka pliku: " + logFilePath);
+            if (File.Exists(logFilePath))
+            {
+                var logContent = await File.ReadAllLinesAsync(logFilePath);
+                var messages = new List<ChatMessage>();
+                foreach (var line in logContent)
+                {
+                    var parts = line.Split(": ");
+                    if (parts.Length >= 3)
+                    {
+                        var timestamp = DateTime.ParseExact(parts[0], "dd.MM.yyyy HH:mm:ss", null);
+                        var User = parts[1];
+                        var Content = parts[2];
+                        if (parts[1] == user.Username)
+                        {
+                            messages.Add(new ChatMessage { Timestamp = timestamp, User = User, Content = Content });
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Nieprawidłowy format linii: {line}");
+                    }
+                }
+                Messages = messages.OrderBy(m => m.Timestamp).ToList();
+                await InvokeAsync(StateHasChanged); // Aktualizacja interfejsu po wczytaniu wiadomości
+            }
+            else
+            {
+                Console.WriteLine($"Plik {logFilePath} nie istnieje.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd wczytywania historii czatu: {ex.Message}");
+        }
+    }
+
+    // Inicjalizacja połączenia WebSocket z serwerem
+    private async Task InitializeWebSocketAsync()
+    {
+        await ConnectWebSocketAsync();
+    }
+
+    // Nawiązywanie połączenia WebSocket z serwerem
+    private async Task ConnectWebSocketAsync()
+    {
+        try
+        {
+            webSocket = new WebSocket("ws://localhost:5000/ws");
+            webSocket.OnMessage += async (sender, args) =>
+            {
+                var message = JsonSerializer.Deserialize<ChatMessage>(args);
+                if (message != null)
+                {
+                    Messages.Add(message);
+                    await InvokeAsync(StateHasChanged); // Aktualizacja interfejsu po otrzymaniu nowej wiadomości
+
+                }
+            };
+            webSocket.OnOpen += (sender, args) => Console.WriteLine("WebSocket connected");
+            webSocket.OnClose += (sender, args) => Console.WriteLine("WebSocket disconnected");
+            await webSocket.ConnectAsync();
+            connectionError = false; // Reset błędu po udanym połączeniu
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Błąd WebSocket: {ex.Message}");
+            connectionError = true;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    // Ponawianie próby połączenia z serwerem WebSocket
+    private async Task RetryConnection()
+    {
+        connectionError = false;
+        await InitializeWebSocketAsync();
+    }
+
+    // Wysłanie wiadomości do serwera przez WebSocket
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(user?.Username) || string.IsNullOrWhiteSpace(chat_input) || webSocket == null || !webSocket.IsConnected())
+        {
+            return;
+        }
+
+        var chatMessage = new ChatMessage
+            {
+                User = user.Username,
+                Content = chat_input,
+                Timestamp = DateTime.Now
+            };
+
+        try
+        {
+            await webSocket.SendAsync(JsonSerializer.Serialize(chatMessage));
+            Messages.Add(chatMessage);
+            chat_input = string.Empty;
+        }
+        catch (Exception ex)
+        {
+            Messages.Add(new ChatMessage
+                {
+                    User = "System",
+                    Content = $"Nie udało się wysłać wiadomości: '{chat_input}'. Błąd: {ex.Message}",
+                    Timestamp = DateTime.Now
+                });
+        }
+        await InvokeAsync(StateHasChanged); // Aktualizacja interfejsu po wysłaniu wiadomości
+    }
+
+    // Obsługa wysyłania wiadomości po naciśnięciu klawisza Enter
+    private async Task HandleEnterKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await SendMessage();
+        }
+    }
+
+    public class WebSocket : IDisposable
+    {
+        private readonly System.Net.WebSockets.ClientWebSocket _client = new();
+        private readonly CancellationTokenSource _cancellation = new();
+        public bool IsConnected() => _client.State == System.Net.WebSockets.WebSocketState.Open;
+
+        public event EventHandler<string>? OnMessage;
+        public event EventHandler? OnOpen;
+        public event EventHandler? OnClose;
+
+        public WebSocket(string uri)
+        {
+            _client = new System.Net.WebSockets.ClientWebSocket();
+        }
+
+        // Nawiązywanie połączenia WebSocket z określoną lokalizacją
+        public async Task ConnectAsync()
+        {
+            await _client.ConnectAsync(new Uri("ws://localhost:5000/ws"), _cancellation.Token);
+            OnOpen?.Invoke(this, EventArgs.Empty);
+            _ = ReceiveMessagesAsync();
+        }
+
+        // Odbieranie wiadomości z WebSocket
+        private async Task ReceiveMessagesAsync()
+        {
+            var buffer = new byte[1024 * 4];
+            while (_client.State == System.Net.WebSockets.WebSocketState.Open)
+            {
+                var result = await _client.ReceiveAsync(new ArraySegment<byte>(buffer), _cancellation.Token);
+                if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Text)
+                {
+                    var message = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    OnMessage?.Invoke(this, message);
+                }
+                else if (result.MessageType == System.Net.WebSockets.WebSocketMessageType.Close)
+                {
+                    await _client.CloseAsync(System.Net.WebSockets.WebSocketCloseStatus.NormalClosure, "Closing", _cancellation.Token);
+                    OnClose?.Invoke(this, EventArgs.Empty);
+                    break;
+                }
+            }
+        }
+
+        // Wysłanie wiadomości przez WebSocket
+        public async Task SendAsync(string message)
+        {
+            if (_client.State == System.Net.WebSockets.WebSocketState.Open)
+            {
+                var buffer = Encoding.UTF8.GetBytes(message);
+                await _client.SendAsync(new ArraySegment<byte>(buffer), System.Net.WebSockets.WebSocketMessageType.Text, true, _cancellation.Token);
+            }
+        }
+
+        // Zwalnianie zasobów WebSocket
+        public void Dispose()
+        {
+            _cancellation.Cancel();
+            _client.Dispose();
+            _cancellation.Dispose();
+        }
+    }
+}

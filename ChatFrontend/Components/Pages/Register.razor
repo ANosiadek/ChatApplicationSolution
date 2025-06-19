@@ -1,0 +1,82 @@
+@page "/register"
+@rendermode InteractiveServer
+@inject HttpClient HttpClient
+@inject NavigationManager NavigationManager
+
+<div class="register-container">
+    <h1>Rejestracja</h1>
+    <form class="pure-form" @onsubmit="HandleRegister" @onsubmit:preventDefault>
+        <input @bind="registerModel.Username" type="text" placeholder="Nazwa użytkownika" required />
+        <input @bind="registerModel.Password" type="password" placeholder="Hasło" required />
+        <input @bind="registerModel.ConfirmPassword" type="password" placeholder="Powtórz hasło" required />
+        <button type="submit"><i class="fa fa-user-plus"></i> Zarejestruj</button>
+    </form>
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <p class="register-message @(IsError ? "error" : "success")">@Message</p>
+    }
+</div>
+
+@code {
+    private RegisterModel registerModel = new();
+    private string Message { get; set; } = string.Empty;
+    private bool IsError { get; set; }
+
+    // Obsługa rejestracji użytkownika po przesłaniu formularza
+    private async Task HandleRegister()
+    {
+        Message = string.Empty;
+        IsError = false;
+
+        // Walidacja zgodności wpisanych haseł
+        if (registerModel.Password != registerModel.ConfirmPassword)
+        {
+            Message = "Hasła nie są zgodne!";
+            IsError = true;
+            return; //Zakończ, jeśli hasła się nie zgadzają
+        }
+
+        // Walidacja pustego pola i zbyt krótkiego hasła
+        if (string.IsNullOrWhiteSpace(registerModel.Username) || registerModel.Password.Length < 3)
+        {
+            Message = "Nazwa użytkownika i hasło (minimum 3 znaki) są wymagane";
+            IsError = true;
+            return;
+        }
+
+        // Rejestracja nowego użytkownika
+        try
+        {
+            var response = await HttpClient.PostAsJsonAsync("http://localhost:5000/register", new
+            {
+                Username = registerModel.Username,
+                Password = registerModel.Password
+            });
+            if (response.IsSuccessStatusCode)
+            {
+                Message = "Rejestracja zakończona pomyślnie!";
+                IsError = false;
+                await Task.Delay(1500); // Krótkie opóźnienie przed przekierowaniem
+                NavigationManager.NavigateTo("/login");
+            }
+            else
+            {
+                Message = await response.Content.ReadAsStringAsync(); // Wyświetlanie błędu z serwera
+                IsError = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Message = $"Błąd podczas rejestracji: {ex.Message}";
+            IsError = true;
+        }
+    }
+
+    // Szablon formularza
+    public class RegisterModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}

@@ -1,0 +1,47 @@
+@page "/login"
+@rendermode InteractiveServer
+@using ChatFrontend.Services
+@inject AuthenticationService AuthenticationService
+@inject NavigationManager NavigationManager
+@inject User user
+
+<div class="login-container">
+    <h1>Logowanie</h1>
+    <form class="pure-form" @onsubmit="HandleLogin" @onsubmit:preventDefault>
+        <input @bind="LoginInput" type="text" placeholder="Nazwa użytkownika" required />
+        <input @bind="PasswordInput" type="password" placeholder="Hasło" required />
+        <button type="submit"><i class="fa fa-chevron-circle-right"></i> Zaloguj</button>
+    </form>
+    @if (!string.IsNullOrEmpty(Message))
+    {
+        <p class="login-message @(IsError ? "error" : "success")">@Message</p>
+    }
+</div>
+
+@code {
+    private string LoginInput { get; set; } = string.Empty;
+    private string PasswordInput { get; set; } = string.Empty;
+    private string Message { get; set; } = string.Empty;
+    private bool IsError { get; set; }
+
+    // Obsługa logowania użytkownika po przesłaniu formularza
+    private async Task HandleLogin()
+    {
+        Message = string.Empty;
+        IsError = false;
+
+        var (success, message) = await AuthenticationService.ValidateCredentialsAsync(LoginInput, PasswordInput);
+        if (success)
+        {
+            Message = message;
+            user.SetUserName(LoginInput);
+            IsError = false;
+            NavigationManager.NavigateTo("/chat"); // Przekierowanie do strony czatu
+        }
+        else
+        {
+            Message = message; // Wyświetlanie błędu
+            IsError = true;
+        }
+    }
+}

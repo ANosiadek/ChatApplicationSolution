@@ -1,0 +1,175 @@
+﻿@page "/weather"
+@attribute [StreamRendering]
+@inject HttpClient Http
+@using System.Globalization
+@using System.Text.Json
+@using System.Text.Json.Serialization
+
+<PageTitle>Pogoda</PageTitle>
+
+<h1>Tygodniowa pogoda</h1>
+
+<p>Prognoza pogody na kolejne 5 dni.</p>
+
+@if (forecasts == null)
+{
+    <p><em>Ładowanie...</em></p>
+}
+else if (errorMessage != null)
+{
+    <p class="error-message"><em>Błąd: @errorMessage</em></p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Data</th>
+                <th aria-label="Temperatura w Celsiuszach">Temp. (°C)</th>
+                <th aria-label="Temperatura w Farenheitach">Temp. (°F)</th>
+                <th>Opis</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var forecast in forecasts)
+            {
+                <tr>
+                    <td>@forecast.Date.ToShortDateString()</td>
+                    <td>@forecast.TemperatureC °C</td>
+                    <td>@forecast.TemperatureF °F</td>
+                    <td>@forecast.Summary</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private WeatherForecast[]? forecasts;
+    private string? errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pobieranie danych pogodowych z Open-Meteo API
+        await FetchWeatherDataAsync();
+    }
+
+    private async Task FetchWeatherDataAsync()
+    {
+        var latitude = 50.2649; // Katowice, Polska
+        var longitude = 19.0238;
+        var url = $"https://api.open-meteo.com/v1/forecast?latitude={latitude.ToString("F4", CultureInfo.InvariantCulture)}&longitude={longitude.ToString("F4", CultureInfo.InvariantCulture)}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=Europe/Warsaw";
+        Console.WriteLine($"Wysyłanie żądania do: {url}"); // Debug: Wyświetl URL
+
+        // Ustawienie nagłówka Accept na application/json
+        Http.DefaultRequestHeaders.Accept.Clear();
+        Http.DefaultRequestHeaders.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/json"));
+
+        try
+        {
+            var response = await Http.GetAsync(url);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Błąd API: {response.StatusCode} - {errorContent}";
+                Console.WriteLine(errorMessage);
+                return;
+            }
+
+            var content = await response.Content.ReadAsStringAsync();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var openMeteoResponse = JsonSerializer.Deserialize<OpenMeteoResponse>(content, options);
+
+            if (openMeteoResponse != null && openMeteoResponse.Daily != null)
+            {
+                var daysToShow = Math.Min(6, openMeteoResponse.Daily.Time?.Length ?? 0); // Ograniczenie do kolejnych 5 dni
+                if (openMeteoResponse.Daily.Temperature2mMax != null && openMeteoResponse.Daily.Temperature2mMin != null && openMeteoResponse.Daily.Weathercode != null)
+                {
+                    forecasts = Enumerable.Range(0, daysToShow).Select(index => new WeatherForecast
+                        {
+                            Date = DateOnly.Parse(openMeteoResponse.Daily.Time[index]),
+                            TemperatureC = (int)((openMeteoResponse.Daily.Temperature2mMax[index] ?? 0) + (openMeteoResponse.Daily.Temperature2mMin[index] ?? 0) / 2), // Średnia temperatura z obsługą null
+                            Summary = GetWeatherSummary(openMeteoResponse.Daily.Weathercode[index] ?? 0)
+                        }).ToArray();
+                    errorMessage = null; // Wyczyść błąd po sukcesie
+                }
+                else
+                {
+                    errorMessage = "Brak danych w tablicach Temperature2mMax, Temperature2mMin lub Weathercode.";
+                    Console.WriteLine(errorMessage);
+                }
+            }
+            else
+            {
+                errorMessage = "Brak danych w odpowiedzi API lub niepoprawna struktura danych.";
+                Console.WriteLine(errorMessage);
+            }
+        }
+        catch (HttpRequestException ex)
+        {
+            errorMessage = $"Błąd pobierania danych: {ex.Message} (Status: {ex.StatusCode})";
+            Console.WriteLine(errorMessage);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Nieoczekiwany błąd: {ex.Message}";
+            Console.WriteLine(errorMessage);
+        }
+    }
+
+    private string GetWeatherSummary(int weathercode)
+    {
+        return weathercode switch
+        {
+            0 => "Słonecznie",
+            1 or 2 => "Pochmurno",
+            3 => "Przelotne opady",
+            51 or 53 or 55 or 61 or 63 or 65 => "Deszczowo",
+            80 or 81 => "Przelotne deszcze",
+            _ => "Nieznane warunki"
+        };
+    }
+
+    private class WeatherForecast
+    {
+        public DateOnly Date { get; set; } // Data prognozy
+        public int TemperatureC { get; set; } // Temperatura w stopniach Celsjusza
+        public string? Summary { get; set; } // Opis pogody
+        public int TemperatureF => 32 + (int)(TemperatureC / 0.5556); // Obliczenie temperatury w Farenheitach
+    }
+
+    // Szablon pobierania pogody
+    private class OpenMeteoResponse
+    {
+        [JsonPropertyName("latitude")]
+        public double Latitude { get; set; }
+        [JsonPropertyName("longitude")]
+        public double Longitude { get; set; }
+        [JsonPropertyName("generationtime_ms")]
+        public double GenerationtimeMs { get; set; }
+        [JsonPropertyName("utc_offset_seconds")]
+        public int UtcOffsetSeconds { get; set; }
+        [JsonPropertyName("timezone")]
+        public string Timezone { get; set; }
+        [JsonPropertyName("timezone_abbreviation")]
+        public string TimezoneAbbreviation { get; set; }
+        [JsonPropertyName("elevation")]
+        public double Elevation { get; set; }
+        [JsonPropertyName("daily_units")]
+        public Dictionary<string, string> DailyUnits { get; set; }
+        [JsonPropertyName("daily")]
+        public Daily Daily { get; set; }
+    }
+
+    private class Daily
+    {
+        [JsonPropertyName("time")]
+        public string[] Time { get; set; } // Tablica dat w formacie ISO (np. "2025-06-19")
+        [JsonPropertyName("temperature_2m_max")]
+        public double?[] Temperature2mMax { get; set; } // Maksymalna temperatura dziennie
+        [JsonPropertyName("temperature_2m_min")]
+        public double?[] Temperature2mMin { get; set; } // Minimalna temperatura dziennie
+        [JsonPropertyName("weathercode")]
+        public int?[] Weathercode { get; set; } // Kod pogody
+    }
+}

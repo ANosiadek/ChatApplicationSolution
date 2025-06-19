@@ -1,0 +1,59 @@
+.home-container {
+    max-width: 800px; 
+    margin: 3rem auto;
+    padding: 20px;
+    text-align: center;
+}
+
+.home-container h1 {
+    margin-bottom: 1rem;
+    font-size: 2.5rem;
+}
+
+.home-container .welcome-text {
+    font-size: 1.2rem;
+    color: #555;
+    margin-bottom: 2rem;
+}
+
+.action-buttons-container {
+    display: flex; 
+    justify-content: center;
+    gap: 1rem;
+}
+
+.action-button {
+    padding: 12px 25px;
+    font-size: 1.1rem;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    cursor: pointer;
+    transition: opacity 0.2s ease-in-out;
+    min-width: 150px;
+}
+
+.action-button:hover {
+    opacity: 0.85;
+}
+
+.login-button {
+    background-color: #0d6efd;
+}
+
+.register-button {
+    background-color: #198754; 
+}
+
+
+.action-button i {
+    margin-right: 8px;
+}
+
+
+.little-footer { /* nikt nic nie widział */
+    position: fixed; 
+    bottom: 10px;    
+    right: 15px;     
+    font-size: 0.75rem; 
+}
