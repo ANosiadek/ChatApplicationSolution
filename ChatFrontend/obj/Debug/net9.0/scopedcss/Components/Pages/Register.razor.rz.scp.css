@@ -1,0 +1,68 @@
+.register-container[b-fzk8p2bwjp] {
+    max-width: 400px; 
+    margin: 10px auto; 
+    padding: 25px; 
+    border: 1px solid #dfdddd; 
+    border-radius: 5px; 
+    background-color: #f0f0f0;
+}
+
+.register-container h1[b-fzk8p2bwjp] {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 2rem;
+}
+
+.register-container form.pure-form[b-fzk8p2bwjp] {
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+}
+
+.register-container input[type="text"][b-fzk8p2bwjp],
+.register-container input[type="password"][b-fzk8p2bwjp] {
+    width: 100%; 
+    padding: 10px; 
+    border: 1px solid #ccc; 
+    box-sizing: border-box; 
+    margin-bottom: 15px; 
+    border-radius: 4px; 
+}
+
+.register-container button[type="submit"][b-fzk8p2bwjp] {
+    width: 100%; 
+    padding: 10px 15px;
+    background-image: linear-gradient(to bottom, #1a195a, #370748);
+    color: white; 
+    border: none; 
+    border-radius: 4px;
+    cursor: pointer; 
+    font-size: 1rem; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    transition: filter 0.2s ease-in-out;
+}
+
+.register-container button[type="submit"] i[b-fzk8p2bwjp] {
+    margin-right: 5px;
+}
+
+.register-container button[type="submit"]:hover[b-fzk8p2bwjp] {
+    filter: brightness(90%);
+}
+
+.register-message[b-fzk8p2bwjp] {
+    margin-top: 15px;
+    text-align: center;
+    font-weight: bold;
+}
+
+
+.register-message.error[b-fzk8p2bwjp] {
+    color: red; 
+}
+
+.register-message.success[b-fzk8p2bwjp] {
+    color: green;
+}
